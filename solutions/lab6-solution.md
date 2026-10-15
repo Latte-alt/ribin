@@ -1,56 +1,77 @@
-# Лабораторная работа №6 — COR между двумя узлами
+# Лабораторная работа №6 — вариант для Packet Tracer
 
-[Методичка](../%D0%BB%D0%B0%D0%B1%206.docx).
+[Исходная методичка](../%D0%BB%D0%B0%D0%B1%206.docx).
 
-**В твоём Packet Tracer отсутствует `dial-peer cor`: полную проверку ограничений выполнить в нём нельзя.** Ниже приведено решение для Cisco IOS с поддержкой CME/COR и голосовых портов. В Packet Tracer можно выполнить сетевую часть и базовую IP-телефонию; физические FXS/FXO и ограничения нельзя считать проверенными без соответствующего оборудования и поддержки команд.
+Схема: **два Cisco 2811, два Catalyst 3560-24PS, два IP-телефона и два аналоговых телефона через Home VoIP**.
 
-## 1. Подготовка и номера
+В используемом Packet Tracer отсутствует `dial-peer cor`. Здесь выполняются настройка двух узлов и проверка звонков через Serial. **COR и выход в PSTN не реализованы**, поэтому это адаптация доступной части задания, а не полная проверка ограничений.
 
-- **R1:** Cisco 2811 с CME, Serial и FXO.
-- **R2:** Cisco 2600 с Serial и двумя FXS; конкретная модель и IOS должны поддерживать голосовые функции.
-- **SwitchA:** Catalyst 3560.
-- **Два IP-телефона 7960**, два аналоговых телефона.
-- Для PSTN — действующая учебная линия внешней АТС и внешний тестовый телефон.
+## 1. Устройства и модули
 
-| Соединение | Кабель |
-| --- | --- |
-| R1 Fa0/0 → SwitchA Fa0/1 | Copper Straight-Through |
-| IP-телефон 1001, Switch → SwitchA Fa0/2 | Copper Straight-Through |
-| IP-телефон 1002, Switch → SwitchA Fa0/3 | Copper Straight-Through |
-| R1 Serial → R2 Serial | Serial DCE/DTE; DCE на R1 |
-| Аналоговый 2001 → FXS №1 на R2 | Phone |
-| Аналоговый 2002 → FXS №2 на R2 | Phone |
-| FXO на R1 → линия внешней АТС | Phone |
+| Название в Packet Tracer | Количество | Назначение |
+| --- | --- | --- |
+| 2811 | 2 | RouterA и RouterB |
+| WIC-2T | 2 | По одному Serial-модулю в каждый 2811 |
+| 3560-24PS | 2 | SwitchA и SwitchB |
+| IP Phone 7960 | 2 | Номера 1001 и 1002 |
+| Home-VoIP-PT | 2 | Адаптеры для аналоговых аппаратов |
+| Analog-Phone-PT | 2 | Номера 2001 и 2002 |
 
-Аналоговые телефоны подключаются к **FXS**, а не непосредственно к Ethernet-коммутатору. Правый коммутатор на рисунке методички для такого подключения не нужен. Подпись Trunk слева не требует trunk в решении с одной VLAN.
+Маршрутизатор → **Physical → выключить питание → установить WIC-2T в слот 3 → включить питание**.
 
-Номера и адреса для этой схемы выбраны явно, поскольку в методичке полный план не задан:
-
-| Назначение | Значение |
-| --- | --- |
-| LAN R1 | 192.168.10.0/24 |
-| R1 Fa0/0 | 192.168.10.1 |
-| Serial R1 / R2 | 10.0.0.1 / 10.0.0.2, маска /30 |
-| IP-телефоны | 1001, 1002 |
-| Аналоговые телефоны на удалённом узле | 2001, 2002 |
-| Выход в PSTN | 9 + внешний номер |
-
-Перед вставкой заменить:
-- `<WAN_R1>`, `<WAN_R2>` — реальные Serial-интерфейсы, например `Serial0/0/0` и `Serial0/0`.
-- `<FXO_R1>`, `<FXS_A_R2>`, `<FXS_B_R2>` — реальные голосовые порты.
-- `<MAC_1001>`, `<MAC_1002>` — MAC IP-телефонов в формате `XXXX.XXXX.XXXX`.
-
-Узнать интерфейсы и голосовые порты:
+В командах используется **Serial0/3/0**. Проверить фактическое имя:
 
 ```text
 enable
 show ip interface brief
-show voice port summary
 ```
 
-Работать на новых или очищенных лабораторных устройствах. На вопрос `initial configuration dialog` — **no**.
+Если модуль установлен в другой слот, заменить `serial0/3/0` во всех командах на своё имя.
 
-## 2. Коммутатор SwitchA
+**7960 получают питание PoE от 3560-24PS. Отдельные адаптеры питания им не требуются.** Home VoIP нужен для преобразования аналогового сигнала в IP и не заменяется PoE-коммутатором.
+
+## 2. Подключение
+
+Все Ethernet-соединения — **Copper Straight-Through**.
+
+| Откуда | Куда |
+| --- | --- |
+| RouterA Fa0/0 | SwitchA Fa0/1 |
+| IP-телефон 1001, порт Switch | SwitchA Fa0/2 |
+| IP-телефон 1002, порт Switch | SwitchA Fa0/3 |
+| RouterB Fa0/0 | SwitchB Fa0/1 |
+| Home VoIP 1, порт Ethernet | SwitchB Fa0/2 |
+| Home VoIP 2, порт Ethernet | SwitchB Fa0/3 |
+
+Отдельно:
+
+- **RouterA Serial0/3/0 ↔ RouterB Serial0/3/0** — кабель **Serial DCE**, первым выбрать RouterA.
+- **Analog Phone 2001, Phone ↔ Home VoIP 1, Phone** — кабель **Phone**.
+- **Analog Phone 2002, Phone ↔ Home VoIP 2, Phone** — кабель **Phone**.
+
+**Телефоны не подключаются напрямую к маршрутизаторам.** Облако PSTN не добавлять: оно не создаёт работающую телефонную сеть.
+
+## 3. Подготовка перед командами
+
+Использовать новые устройства. Если уже вводилась старая конфигурация 6-й лабораторной, сохранить копию проекта и очистить настройки соответствующих устройств:
+
+```text
+enable
+erase startup-config
+reload
+```
+
+Подтверждение удаления — **Enter**; на предложение сохранить настройки при перезагрузке — **no**. На вопрос `initial configuration dialog` — **no**. Команды очистки удаляют прежние настройки устройства.
+
+Узнать **Ethernet MAC обоих Home VoIP**: навести указатель на устройство или открыть сведения его Ethernet-интерфейса во вкладке **Config**. Записать, какой адаптер соединён с каким аналоговым телефоном.
+
+В блоке RouterB заменить:
+- `<MAC_HOME_2001>` — MAC первого Home VoIP;
+- `<MAC_HOME_2002>` — MAC второго Home VoIP.
+
+Формат MAC — `XXXX.XXXX.XXXX`, без угловых скобок. У аналоговых аппаратов Ethernet MAC нет.
+
+## 4. SwitchA
 
 ```text
 enable
@@ -76,14 +97,42 @@ end
 copy running-config startup-config
 ```
 
-На запрос имени файла — **Enter**. Телефонам обеспечить PoE или установить адаптеры питания.
+На запрос имени файла — **Enter**.
 
-## 3. R1 — сеть, DHCP и CME
+## 5. SwitchB
 
 ```text
 enable
 configure terminal
-hostname CMERouter
+hostname SwitchB
+no ip domain-lookup
+
+interface fastEthernet0/1
+switchport mode access
+switchport access vlan 1
+no shutdown
+exit
+
+interface range fastEthernet0/2 - 3
+switchport mode access
+switchport access vlan 1
+switchport voice vlan 1
+spanning-tree portfast
+no shutdown
+exit
+
+end
+copy running-config startup-config
+```
+
+С обеих сторон используется VLAN 1. Trunk и подинтерфейсы для этой схемы не нужны.
+
+## 6. RouterA — IP-телефоны 1001 и 1002
+
+```text
+enable
+configure terminal
+hostname RouterA
 no ip domain-lookup
 
 interface fastEthernet0/0
@@ -91,15 +140,17 @@ ip address 192.168.10.1 255.255.255.0
 no shutdown
 exit
 
-interface <WAN_R1>
+interface serial0/3/0
 ip address 10.0.0.1 255.255.255.252
 encapsulation hdlc
 clock rate 2000000
 no shutdown
 exit
 
+ip route 192.168.20.0 255.255.255.0 10.0.0.2
+
 ip dhcp excluded-address 192.168.10.1 192.168.10.10
-ip dhcp pool VOICE
+ip dhcp pool VOICE_A
 network 192.168.10.0 255.255.255.0
 default-router 192.168.10.1
 option 150 ip 192.168.10.1
@@ -109,6 +160,7 @@ telephony-service
 max-dn 2
 max-ephones 2
 ip source-address 192.168.10.1 port 2000
+auto assign 1 to 2
 exit
 
 ephone-dn 1
@@ -118,42 +170,34 @@ ephone-dn 2
 number 1002
 exit
 
-ephone 1
-mac-address <MAC_1001>
-type 7960
-button 1:1
-exit
-ephone 2
-mac-address <MAC_1002>
-type 7960
-button 1:2
+dial-peer voice 20 voip
+destination-pattern 200.
+session target ipv4:10.0.0.2
+codec g711ulaw
 exit
 
 end
 copy running-config startup-config
 ```
 
-На полноценном IOS, если требуется генерация файлов конфигурации телефонов:
+Номера 1001 и 1002 назначатся IP-телефонам автоматически в порядке регистрации.
 
-```text
-configure terminal
-telephony-service
-create cnf-files
-exit
-end
-```
+## 7. RouterB — аналоговые телефоны через Home VoIP
 
-Физическим телефонам также требуется совместимая SCCP-прошивка и её штатное предоставление через TFTP, если она ещё не установлена. Не задавать имя файла прошивки наугад.
-
-## 4. R2 — Serial, FXS и маршруты звонков
+**Перед вставкой заменить два MAC-адреса.**
 
 ```text
 enable
 configure terminal
-hostname AnalogRouter
+hostname RouterB
 no ip domain-lookup
 
-interface <WAN_R2>
+interface fastEthernet0/0
+ip address 192.168.20.1 255.255.255.0
+no shutdown
+exit
+
+interface serial0/3/0
 ip address 10.0.0.2 255.255.255.252
 encapsulation hdlc
 no shutdown
@@ -161,265 +205,175 @@ exit
 
 ip route 192.168.10.0 255.255.255.0 10.0.0.1
 
-voice-port <FXS_A_R2>
-signal loop-start
-station-id number 2001
-no shutdown
-exit
-voice-port <FXS_B_R2>
-signal loop-start
-station-id number 2002
-no shutdown
+ip dhcp excluded-address 192.168.20.1 192.168.20.10
+ip dhcp pool VOICE_B
+network 192.168.20.0 255.255.255.0
+default-router 192.168.20.1
+option 150 ip 192.168.20.1
 exit
 
-dial-peer voice 21 pots
-destination-pattern 2001
-port <FXS_A_R2>
+telephony-service
+max-dn 2
+max-ephones 2
+ip source-address 192.168.20.1 port 2000
 exit
-dial-peer voice 22 pots
-destination-pattern 2002
-port <FXS_B_R2>
+
+ephone-dn 1
+number 2001
+exit
+ephone-dn 2
+number 2002
+exit
+
+ephone 1
+mac-address <MAC_HOME_2001>
+type ata
+button 1:1
+exit
+
+ephone 2
+mac-address <MAC_HOME_2002>
+type ata
+button 1:2
 exit
 
 dial-peer voice 10 voip
 destination-pattern 100.
 session target ipv4:10.0.0.1
 codec g711ulaw
-no vad
-exit
-dial-peer voice 90 voip
-destination-pattern 9T
-session target ipv4:10.0.0.1
-codec g711ulaw
-no vad
 exit
 
 end
 copy running-config startup-config
 ```
 
-На R2 `clock rate` не задаётся: эта сторона DTE. Точный тип кабеля проверить через `show controllers serial` с номером своего интерфейса.
+`clock rate` задаётся только на RouterA — стороне DCE. Если кабель установлен наоборот, перенести команду на фактическую DCE-сторону.
 
-## 5. R1 — COR и внешние направления
+Номера аналоговых телефонов настраиваются на RouterB через регистрацию **Home VoIP как ATA**. Это не физические FXS-порты маршрутизатора.
 
-**Выполнять только в IOS с поддержкой COR.** В Packet Tracer, где доступен лишь `dial-peer voice`, этот блок полностью не выполнится.
+## 8. Home VoIP и регистрация
 
-Права соответствуют заданию:
-- **1001:** локальные и удалённые звонки через IP/WAN, без PSTN.
-- **1002:** все настроенные направления.
-- **2001/2002:** локальные IP-номера и PSTN.
-- **Входящий PSTN:** разрешены локальные IP-номера, запрещены удалённые аналоговые.
+На **обоих Home VoIP**:
 
-```text
-configure terminal
+1. Открыть **Config → Settings**.
+2. В поле **Server Address** указать **192.168.20.1**.
+3. Для Ethernet-интерфейса выбрать **DHCP**, если доступен выбор способа получения адреса.
+4. Дождаться получения адреса и регистрации.
 
-dial-peer cor custom
-name PRI
-name Analog
-name PSTN
-exit
+Ожидаемые параметры:
 
-dial-peer cor list callPRI
-member PRI
-exit
-dial-peer cor list callAnalog
-member Analog
-exit
-dial-peer cor list callPSTN
-member PSTN
-exit
+| Устройства | IP-сеть | Шлюз / сервер телефонии |
+| --- | --- | --- |
+| IP-телефоны 1001, 1002 | 192.168.10.0/24 | 192.168.10.1 |
+| Home VoIP для 2001, 2002 | 192.168.20.0/24 | 192.168.20.1 |
 
-dial-peer cor list Type1
-member PRI
-member Analog
-exit
-dial-peer cor list Type2
-member PRI
-member Analog
-member PSTN
-exit
-dial-peer cor list AnalogUser
-member PRI
-member PSTN
-exit
-dial-peer cor list FromPSTN
-member PRI
-exit
+Аналоговый аппарат собственного IP не получает — адрес получает его Home VoIP.
 
-ephone-dn 1
-corlist incoming Type1
-corlist outgoing callPRI
-exit
-ephone-dn 2
-corlist incoming Type2
-corlist outgoing callPRI
-exit
+Подождать в режиме **Realtime** или нажать **Fast Forward Time**. Если телефоны включились до настройки, при необходимости перезапустить их после ввода команд.
 
-dial-peer voice 20 voip
-incoming called-number .
-destination-pattern 200.
-session target ipv4:10.0.0.2
-codec g711ulaw
-no vad
-corlist incoming AnalogUser
-corlist outgoing callAnalog
-exit
+## 9. Проверка
 
-voice-port <FXO_R1>
-signal loop-start
-connection plar 1002
-no shutdown
-exit
-
-dial-peer voice 6 pots
-destination-pattern 9T
-port <FXO_R1>
-corlist incoming FromPSTN
-corlist outgoing callPSTN
-exit
-
-end
-copy running-config startup-config
-```
-
-`PRI` здесь — имя класса внутренних IP-звонков, не настройка физического PRI. Класс `Analog` разрешает направление к удалённым номерам 200x по WAN.
-
-В VoIP dial-peer цифры не отрезаются. В POTS dial-peer 6 явно заданная ведущая **9** удаляется перед передачей внешнего номера в FXO. Сигнализация loop-start должна соответствовать учебной АТС.
-
-**Отличие от ошибочного примера методички:** в Type1 нет PSTN. Иначе телефон 1001 получил бы именно тот доступ, который задание требует запретить.
-
-## 6. Проверки
-
-Сначала проверить питание, регистрацию и базовые звонки **до назначения COR**. Затем применить раздел 5 и сравнить результаты.
-
-### Сеть
-
-R1:
+### RouterA
 
 ```text
 show ip interface brief
 show ip route
 show ip dhcp binding
 show ephone
+show dial-peer voice summary
 ping 10.0.0.2
+ping 192.168.20.1
 ```
 
-R2:
+### RouterB
 
 ```text
 show ip interface brief
 show ip route
-show voice port summary
+show ip dhcp binding
+show ephone
+show dial-peer voice summary
 ping 10.0.0.1
 ping 192.168.10.1
 ```
 
-SwitchA:
+Ожидается:
+- Fa0/0 и Serial0/3/0 — **up/up** на обоих маршрутизаторах.
+- У RouterA есть статический маршрут **192.168.20.0/24**, у RouterB — **192.168.10.0/24**.
+- RouterA выдал два адреса IP-телефонам.
+- RouterB выдал два адреса Home VoIP.
+- На RouterA зарегистрированы два 7960, на RouterB — два ATA.
+
+### Оба коммутатора
 
 ```text
 show interfaces status
 show vlan brief
 show interfaces fastEthernet0/2 switchport
+show interfaces fastEthernet0/3 switchport
 ```
 
-### Голос и ограничения — R1
+На SwitchA дополнительно, если команда поддерживается:
 
 ```text
-show dial-peer cor
-show dial-peer voice summary
-show voice port summary
-show ephone-dn summary
-show telephony-service dial-peer
-show call active voice brief
-show running-config
+show power inline
 ```
 
-Если конкретная команда `show` отсутствует в выбранном IOS, использовать поддерживаемые команды и `show running-config`.
+### Проверка звонков
 
-### Звонки
+Снять трубку, набрать номер, ответить на другом аппарате. После каждого теста завершить разговор.
 
-| Проверка | Ожидаемый результат |
+| Вызов | Что проверяется |
 | --- | --- |
-| 1001 → 1002 | Разрешено |
-| 1001 → 2001 / 2002 по WAN | Разрешено |
-| 1001 → 9 + внешний номер | Запрещено COR |
-| 1002 → 1001 / 2001 / 2002 | Разрешено |
-| 1002 → 9 + внешний номер | Разрешено |
-| 2001 / 2002 → 1001 / 1002 | Разрешено |
-| 2001 / 2002 → 9 + внешний номер | Разрешено |
-| PSTN → 1002 через PLAR | Разрешено |
-| PSTN → 2001 / 2002 | Запрещено COR |
+| 1001 → 1002 | Локальная IP-телефония слева |
+| 2001 → 2002 | Аналоговые аппараты через ATA справа |
+| 1001 → 2001 | Звонок через Serial слева направо |
+| 1002 → 2002 | Второй удалённый аппарат |
+| 2001 → 1001 | Звонок справа налево |
+| 2002 → 1002 | Обратное направление второго аппарата |
 
-Для PSTN нужен реально достижимый номер учебной АТС. Отсутствие линии не является доказательством запрета COR. Проверять новые вызовы в каждом направлении, завершать предыдущий разговор.
+**В этой конфигурации все перечисленные звонки должны проходить: ограничений COR нет.**
 
-### Проверка запрета PSTN → аналоговый телефон
+## 10. Если связь не работает
 
-По умолчанию FXO направляет входящий вызов на 1002. Чтобы проверить именно запрет к аналоговому телефону, временно изменить назначение PLAR на R1:
-
-```text
-configure terminal
-voice-port <FXO_R1>
-no connection plar
-connection plar 2001
-exit
-end
-```
-
-Позвонить с внешнего телефона на учебную линию FXO: **2001 не должен звонить**. Для контрольного сравнения временно разрешить это направление:
+- Serial красный: проверить питание, модуль WIC-2T, имя интерфейса, `no shutdown` и тактирование DCE.
+- Home VoIP не регистрируется: проверить MAC, DHCP и **Server Address 192.168.20.1**.
+- Работают только локальные звонки: проверить статические маршруты, ping удалённого Fa0/0 и `session target`.
+- Телефон 7960 не включается: проверить, что используется **3560-24PS**, исправный Ethernet-порт и подключение к порту телефона **Switch**.
+- Для диагностики конфигурации на обоих маршрутизаторах:
 
 ```text
-configure terminal
-dial-peer cor list FromPSTN
-member Analog
-exit
-end
+show running-config
+show controllers serial 0/3/0
+show interfaces serial0/3/0
 ```
 
-Повторить тот же вызов: **2001 должен звонить**. Затем восстановить ограничения и входящий номер:
+## 11. Дополнительные сервисы
 
-```text
-configure terminal
-dial-peer cor list FromPSTN
-no member Analog
-exit
-voice-port <FXO_R1>
-no connection plar
-connection plar 1002
-exit
-end
-copy running-config startup-config
-```
+При наличии поддержки и кнопок:
+- перевод: **1001 → 1002**, ответ → на 1002 **Transfer → 2001 → Transfer**;
+- конференция: разговор **1001 ↔ 1002** → **Confrn → 2001 → ответ → Confrn**;
+- перехват: **2001 звонит 1001**, на 1001 не отвечать → на 1002 **PickUp → 1001**, при необходимости **Answer**.
 
-## 7. Дополнительные сервисы
+Проверять эти функции отдельно: базовая конфигурация и данная версия Packet Tracer могут их не поддерживать.
 
-При поддержке функций и наличии нужных кнопок:
-- Перевод: **1001 → 1002**, ответ → на 1002 **Transfer → 2001 → Transfer**.
-- Конференция: разговор **1001 ↔ 1002** → **Confrn → 2001 → ответ → Confrn**.
-- Перехват: **2001 звонит 1001**, на 1001 не отвечать → на 1002 **PickUp → 1001**, при необходимости **Answer**.
+## 12. Что не выполнено из исходного задания
 
-Базовая конфигурация CME не гарантирует поддержку этих функций на любом образе или симуляторе. Не отмечать их как выполненные без успешной проверки.
+- Ограничения по классам COR: в используемой модели нет `dial-peer cor`.
+- Звонки в PSTN и запрет PSTN → аналоговый аппарат: внешняя телефонная сеть и FXO здесь отсутствуют.
 
-## 8. Что выполнить в твоём Packet Tracer
+Неудачный звонок без настроенной PSTN не подтверждает работу ограничения. Для полной исходной лабораторной нужен стенд с соответствующими функциями.
 
-1. Можно настроить коммутатор, DHCP, CME для двух IP-телефонов и Serial-сеть. Для обоих маршрутизаторов можно использовать 2811 с Serial-модулями; имена интерфейсов заменить фактическими.
-2. Проверить регистрацию, звонки **1001 ↔ 1002**, IP-связь между маршрутизаторами.
-3. Не вводить блоки физических FXS/FXO, если соответствующих портов нет.
-4. **Раздел COR не выполнен:** команда `dial-peer cor` в используемой модели отсутствует. `dial-peer voice` не заменяет COR, а Home VoIP не создаёт физический FXO-порт на маршрутизаторе.
+Фраза для отчёта после успешной проверки связи: «Настроена связь двух узлов через Serial, регистрация IP-телефонов и аналоговых аппаратов через Home VoIP. Проверены локальные и межузловые звонки. COR и PSTN не проверены из-за отсутствия необходимых функций в используемом симуляторе».
 
-Фраза для отчёта: «Сетевая часть и базовая IP-телефония настроены. Ограничения COR и физические FXS/FXO не проверены из-за отсутствия необходимых функций в используемом симуляторе».
+## 13. Сохранение
 
-## 9. Сохранение
-
-На всех устройствах IOS:
+На обоих маршрутизаторах и коммутаторах:
 
 ```text
 copy running-config startup-config
 ```
 
-На запрос имени файла — **Enter**. Проект Packet Tracer: **File → Save As → Лабораторная_6.pkt**.
+На запрос имени файла — **Enter**. **File → Save As → Лабораторная_6.pkt**.
 
 [Контрольные вопросы и ответы](labs-control-answers.md#лабораторная-работа-6).
-
-Источник по логике ограничений: [Cisco — Configure Class of Restrictions](https://www.cisco.com/c/en/us/support/docs/voice/call-routing-dial-plans/42720-configuring-cor.html).
-
-Команды и ожидаемые результаты подготовлены по методичке; фактические звонки на оборудовании в рамках подготовки файла не выполнялись.
