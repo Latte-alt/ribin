@@ -131,7 +131,7 @@ iscsiadm -m node -T "$ISCSI_TARGET" -p "$ISCSI_SERVER:3260" --op update -n node.
 
 iscsiadm -m node -T "$ISCSI_TARGET" -p "$ISCSI_SERVER:3260" --login
 iscsiadm -m session
-lsblk -o NAME,SIZE,TYPE,MODEL,MOUNTPOINTS
+lsblk -o NAME,SIZE,TYPE,MODEL,MOUNTPOINT
 ls -l /dev/disk/by-path/*iscsi*
 ```
 
